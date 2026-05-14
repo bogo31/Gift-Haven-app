@@ -1,0 +1,70 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // -- Helpers --
+    function isSignedIn() { return request.auth != null; }
+    function isAdmin() { 
+      return isSignedIn() && (
+        request.auth.token.email == 'iamsohan8.6@gmail.com' ||
+        exists(/databases/$(database)/documents/users/$(request.auth.uid))
+      ); 
+    }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    
+    function isValidId(id) { 
+      return id is string && id.size() <= 128; 
+    }
+
+    // -- Order Validation --
+    function isValidOrder(data) {
+      return data.customerName is string
+        && data.status in ['pending', 'confirmed', 'processing', 'completed', 'cancelled']
+        && (data.email is string)
+        && (data.userId == request.auth.uid);
+    }
+
+    // -- Collections --
+
+    // Users collection (Admin lookup)
+    // Only admins can see the list of users, or a user can see their own doc.
+    match /users/{userId} {
+      allow get: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow list: if isAdmin();
+      // Only existing admins can create new admins, or the first admin can be bootstrapped manually.
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Orders collection
+    match /orders/{orderId} {
+      // Users can see their own orders, Admins can see all
+      allow get, list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      
+      allow create: if isSignedIn() && isValidOrder(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+        
+      allow update: if isSignedIn() && (existing().userId == request.auth.uid || isAdmin())
+        && isValidOrder(incoming())
+        && incoming().updatedAt == request.time
+        && incoming().createdAt == existing().createdAt
+        && (
+          // Action: Status Update
+          (incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt'])) ||
+          // Action: Full Edit
+          (incoming().diff(existing()).affectedKeys().hasOnly([
+            'userId', 'customerName', 'phoneNumber', 'email', 'address', 'product', 'productId', 
+            'quantity', 'deliveryCharge', 'total', 'notes', 'paymentMethod', 
+            'status', 'updatedAt', 'wcOrderId'
+          ]))
+        );
+
+      allow delete: if isSignedIn() && (existing().userId == request.auth.uid || isAdmin());
+    }
+  }
+}

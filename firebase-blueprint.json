@@ -1,0 +1,51 @@
+{
+  "entities": {
+    "Order": {
+      "title": "WooCommerce Order",
+      "description": "An order synced from WooCommerce or created manually.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "The UID of the user who created/synced this order" },
+        "wcOrderId": { "type": "integer", "description": "The ID of the order in WooCommerce" },
+        "customerName": { "type": "string" },
+        "phoneNumber": { "type": "string" },
+        "email": { "type": "string" },
+        "address": { "type": "string" },
+        "product": { "type": "string" },
+        "productId": { "type": "integer" },
+        "quantity": { "type": "integer" },
+        "deliveryCharge": { "type": "number" },
+        "total": { "type": "number" },
+        "notes": { "type": "string" },
+        "paymentMethod": { "type": "string" },
+        "status": { 
+          "type": "string",
+          "enum": ["pending", "confirmed", "processing", "completed", "cancelled"]
+        },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["customerName", "status", "createdAt"]
+    },
+    "User": {
+      "title": "Admin User",
+      "description": "An administrator of the system.",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin"] }
+      },
+      "required": ["email", "role"]
+    }
+  },
+  "firestore": {
+    "orders": {
+      "schema": "Order",
+      "description": "Collection of all orders."
+    },
+    "users": {
+      "schema": "User",
+      "description": "Collection of admin users."
+    }
+  }
+}
